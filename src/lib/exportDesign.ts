@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import html2canvas from "html2canvas";
 
 // Strip editor-only attributes so exported HTML is clean.
 function stripEditorAttrs(html: string): string {
