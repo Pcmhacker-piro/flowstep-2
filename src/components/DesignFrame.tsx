@@ -464,7 +464,7 @@ export function DesignFrame({
       <div
         style={{
           width: INNER_W,
-          height: INNER_H,
+          height: innerH,
           transform: `scale(${scale})`,
           transformOrigin: "top left",
         }}
@@ -478,7 +478,7 @@ export function DesignFrame({
         sandbox="allow-scripts allow-same-origin"
         style={{
           width: INNER_W,
-          height: INNER_H,
+          height: innerH,
           transform: `scale(${scale})`,
           transformOrigin: "top left",
           opacity: isPartial && safeHtml.length < 2500 ? 0 : 1,
