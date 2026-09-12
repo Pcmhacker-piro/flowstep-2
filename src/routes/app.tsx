@@ -36,7 +36,7 @@ import {
 import { DesignFrame, type PartSelection } from "@/components/DesignFrame";
 import { readSnippetAtPath, spliceAtPath } from "@/lib/htmlSplice";
 import { Inspector } from "@/components/Inspector";
-import { exportDesignZip } from "@/lib/exportDesign";
+import { exportDesignZip, exportDesignImage } from "@/lib/exportDesign";
 
 
 
@@ -91,7 +91,19 @@ function AppHome() {
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
 
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<"zip" | "image" | false>(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close the export menu when clicking outside of it.
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const onDown = (e: globalThis.PointerEvent) => {
+      if (!exportMenuRef.current?.contains(e.target as Node)) setExportMenuOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [exportMenuOpen]);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isNarrow, setIsNarrow] = useState(false);
