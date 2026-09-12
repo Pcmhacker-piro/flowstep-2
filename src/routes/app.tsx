@@ -36,7 +36,7 @@ import {
 import { DesignFrame, type PartSelection } from "@/components/DesignFrame";
 import { readSnippetAtPath, spliceAtPath } from "@/lib/htmlSplice";
 import { Inspector } from "@/components/Inspector";
-import { exportDesignZip } from "@/lib/exportDesign";
+import { exportDesignZip, exportDesignImage } from "@/lib/exportDesign";
 
 
 
@@ -91,7 +91,19 @@ function AppHome() {
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
 
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<"zip" | "image" | false>(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close the export menu when clicking outside of it.
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const onDown = (e: globalThis.PointerEvent) => {
+      if (!exportMenuRef.current?.contains(e.target as Node)) setExportMenuOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [exportMenuOpen]);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isNarrow, setIsNarrow] = useState(false);
@@ -1730,25 +1742,57 @@ function AppHome() {
             return (
               <div className="absolute right-4 top-4 flex items-center gap-1 rounded-full bg-white px-2 py-1.5 shadow-md">
                 {isDesign && sel?.type === "design" && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        setExporting(true);
-                        await exportDesignZip(sel.html, sel.prompt);
-                      } catch (err) {
-                        const msg = err instanceof Error ? err.message : "Export failed";
-                        setMessages((m) => [...m, { id: uid(), role: "assistant", text: `Export failed: ${msg}` }]);
-                      } finally {
-                        setExporting(false);
-                      }
-                    }}
-                    disabled={exporting}
-                    className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-[#0b1220] hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50"
-                    title="Download as ZIP (index.html + assets)"
-                  >
-                    {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                    {exporting ? "Packing…" : "Export ZIP"}
-                  </button>
+                  <div className="relative" ref={exportMenuRef}>
+                    <button
+                      onClick={() => setExportMenuOpen((o) => !o)}
+                      disabled={exporting !== false}
+                      className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-[#0b1220] hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50"
+                      title="Download this design"
+                    >
+                      {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                      {exporting === "zip" ? "Packing…" : exporting === "image" ? "Capturing…" : "Export"}
+                    </button>
+                    {exportMenuOpen && (
+                      <div className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-lg">
+                        <button
+                          onClick={async () => {
+                            setExportMenuOpen(false);
+                            try {
+                              setExporting("image");
+                              await exportDesignImage(sel.html, sel.prompt);
+                            } catch (err) {
+                              const msg = err instanceof Error ? err.message : "Image export failed";
+                              setMessages((m) => [...m, { id: uid(), role: "assistant", text: `Export failed: ${msg}` }]);
+                            } finally {
+                              setExporting(false);
+                            }
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-[#0b1220] hover:bg-black/5"
+                        >
+                          <Download className="h-3.5 w-3.5 text-[#2b6bff]" />
+                          Image (PNG)
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setExportMenuOpen(false);
+                            try {
+                              setExporting("zip");
+                              await exportDesignZip(sel.html, sel.prompt);
+                            } catch (err) {
+                              const msg = err instanceof Error ? err.message : "Export failed";
+                              setMessages((m) => [...m, { id: uid(), role: "assistant", text: `Export failed: ${msg}` }]);
+                            } finally {
+                              setExporting(false);
+                            }
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-[#0b1220] hover:bg-black/5"
+                        >
+                          <Download className="h-3.5 w-3.5 text-[#2b6bff]" />
+                          Code (ZIP)
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
                 <button
                   onClick={deleteSelected}

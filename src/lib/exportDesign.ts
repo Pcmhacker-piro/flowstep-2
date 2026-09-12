@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import html2canvas from "html2canvas";
 
 // Strip editor-only attributes so exported HTML is clean.
 function stripEditorAttrs(html: string): string {
@@ -119,4 +120,59 @@ export async function exportDesignZip(rawHtml: string, promptText: string): Prom
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5_000);
+}
+
+function safeName(name: string): string {
+  return (name || "design").toLowerCase().replace(/[^a-z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "design";
+}
+
+// Render the design HTML into a hidden iframe and capture it as a PNG.
+export async function exportDesignImage(rawHtml: string, promptText: string): Promise<void> {
+  const cleaned = stripEditorAttrs(rawHtml);
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText =
+    "position:fixed;left:-20000px;top:0;width:1440px;height:960px;border:0;visibility:hidden;";
+  iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+  document.body.appendChild(iframe);
+
+  try {
+    const doc = iframe.contentDocument;
+    if (!doc) throw new Error("Could not prepare the image preview");
+    doc.open();
+    doc.write(cleaned);
+    doc.close();
+
+    await new Promise((r) => setTimeout(r, 800)); // let fonts/images settle
+
+    const body = doc.body;
+    const height = Math.min(Math.max(body.scrollHeight, 480), 24000);
+    iframe.style.height = `${height}px`;
+    await new Promise((r) => setTimeout(r, 200));
+
+    const canvas = await html2canvas(body, {
+      width: 1440,
+      height,
+      windowWidth: 1440,
+      windowHeight: height,
+      scale: 1,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+    });
+
+    const blob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Image capture failed"))), "image/png");
+    });
+
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeName(promptText)}-${stamp}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5_000);
+  } finally {
+    iframe.remove();
+  }
 }
