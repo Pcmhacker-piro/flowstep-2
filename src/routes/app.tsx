@@ -220,6 +220,17 @@ function AppHome() {
     setEditTargets((prev) => prev.filter((t) => t.editId !== editId));
   }, []);
 
+  // Grow a design card so the full generated page is visible, not just the fold.
+  const onContentHeight = useCallback((designId: string, innerHeight: number) => {
+    setItems((it) =>
+      it.map((i) => {
+        if (i.id !== designId || i.type !== "design") return i;
+        const nextH = Math.round((i.w / 1440) * innerHeight);
+        return Math.abs(nextH - i.h) < 4 ? i : { ...i, h: nextH };
+      }),
+    );
+  }, []);
+
   const removeEditTarget = (editId: string) =>
     setEditTargets((prev) => prev.filter((t) => t.editId !== editId));
 
@@ -1627,6 +1638,7 @@ function AppHome() {
                         }
                         onPickPart={onPickPart}
                         onUnpickPart={onUnpickPart}
+                        onContentHeight={onContentHeight}
                       />
 
                     </div>
