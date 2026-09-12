@@ -90,9 +90,14 @@ export function DesignFrame({
   focusRequest,
   onPickPart,
   onUnpickPart,
+  onContentHeight,
 }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const scale = Math.min(width / INNER_W, height / INNER_H);
+  // The card keeps the design's 1440px-wide viewport and grows vertically with
+  // the page, so a tall generated site is shown in full rather than cropped to
+  // the first fold.
+  const [innerH, setInnerH] = useState(Math.max(INNER_H, Math.round((height / Math.max(width, 1)) * INNER_W)));
+  const scale = width / INNER_W;
 
   // The iframe document is written incrementally (document.write) instead of
   // being re-created through srcDoc on every streamed chunk — a fresh srcDoc
