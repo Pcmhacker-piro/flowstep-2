@@ -312,15 +312,8 @@ function AppHome() {
   const onResizeMove = (e: ReactPointerEvent) => {
     if (!resizeState.current) return;
     const next = resizeState.current.startW + (e.clientX - resizeState.current.startX);
-    if (next < 160) {
-      resizeState.current = null;
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-      setSidebarOpen(false);
-      return;
-    }
     const maxW = Math.max(240, Math.min(600, window.innerWidth - 220));
-    setSidebarWidth(Math.min(maxW, Math.max(220, next)));
+    setSidebarWidth(Math.min(maxW, Math.max(240, next)));
   };
   const onResizeUp = (e: ReactPointerEvent) => {
     resizeState.current = null;
