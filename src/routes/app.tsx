@@ -302,17 +302,30 @@ function AppHome() {
 
 
   const onResizeDown = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
     resizeState.current = { startX: e.clientX, startW: sidebarWidth };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onResizeMove = (e: ReactPointerEvent) => {
     if (!resizeState.current) return;
     const next = resizeState.current.startW + (e.clientX - resizeState.current.startX);
+    if (next < 160) {
+      resizeState.current = null;
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      setSidebarOpen(false);
+      return;
+    }
     const maxW = Math.max(240, Math.min(600, window.innerWidth - 220));
     setSidebarWidth(Math.min(maxW, Math.max(220, next)));
   };
   const onResizeUp = (e: ReactPointerEvent) => {
     resizeState.current = null;
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
     try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
   };
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -1546,6 +1559,7 @@ function AppHome() {
             onPointerDown={onResizeDown}
             onPointerMove={onResizeMove}
             onPointerUp={onResizeUp}
+            onPointerCancel={onResizeUp}
             className="absolute right-0 top-0 z-10 h-full w-1.5 -mr-[3px] cursor-col-resize hover:bg-[#2b6bff]/30 active:bg-[#2b6bff]/50"
           />
           )}
@@ -1553,7 +1567,10 @@ function AppHome() {
         )}
         {!sidebarOpen && (
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => {
+              setSidebarWidth((width) => Math.max(280, width));
+              setSidebarOpen(true);
+            }}
             className="absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#0b1220] shadow-md hover:bg-[#f8f2ff]"
             aria-label="Show chat"
             title="Show chat"
