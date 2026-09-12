@@ -145,6 +145,55 @@ export function DesignFrame({
     }
   }, [html, isPartial, id]);
 
+  // Measure the real page height and grow the frame to fit it.
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    let raf = 0;
+    let last = 0;
+
+    const measure = () => {
+      const doc = iframe.contentDocument;
+      const body = doc?.body;
+      if (!doc || !body) return;
+      const measured = Math.max(
+        body.scrollHeight,
+        doc.documentElement?.scrollHeight ?? 0,
+        body.getBoundingClientRect().height,
+      );
+      const next = Math.min(24000, Math.max(INNER_H, Math.round(measured)));
+      if (Math.abs(next - last) < 4) return;
+      last = next;
+      setInnerH(next);
+      onContentHeight?.(id, next);
+    };
+
+    measure();
+
+    let observer: ResizeObserver | null = null;
+    const win = iframe.contentWindow as (Window & typeof globalThis) | null;
+    if (win && "ResizeObserver" in win && iframe.contentDocument?.body) {
+      observer = new win.ResizeObserver(() => {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(measure);
+      });
+      observer.observe(iframe.contentDocument.body);
+    }
+
+    // While streaming, the document keeps growing between writes.
+    const poll = isPartial ? window.setInterval(measure, 400) : 0;
+    const settle = window.setTimeout(measure, 600);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      observer?.disconnect();
+      if (poll) window.clearInterval(poll);
+      window.clearTimeout(settle);
+    };
+  }, [html, isPartial, docReady, id, onContentHeight]);
+
+
+
 
   // Click-to-toggle-select overlay while select-mode is on.
   useEffect(() => {
