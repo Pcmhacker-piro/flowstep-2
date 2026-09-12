@@ -23,6 +23,9 @@ type Props = {
   focusRequest?: { editId: string; nonce: number } | null;
   onPickPart?: (sel: PartSelection) => void;
   onUnpickPart?: (designId: string, editId: string) => void;
+  /** Reports the full document height (in 1440px-wide design units) so the
+   *  canvas card can grow and show the whole page instead of the top fold. */
+  onContentHeight?: (designId: string, innerHeight: number) => void;
 };
 
 const INNER_W = 1440;
@@ -87,9 +90,14 @@ export function DesignFrame({
   focusRequest,
   onPickPart,
   onUnpickPart,
+  onContentHeight,
 }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const scale = Math.min(width / INNER_W, height / INNER_H);
+  // The card keeps the design's 1440px-wide viewport and grows vertically with
+  // the page, so a tall generated site is shown in full rather than cropped to
+  // the first fold.
+  const [innerH, setInnerH] = useState(Math.max(INNER_H, Math.round((height / Math.max(width, 1)) * INNER_W)));
+  const scale = width / INNER_W;
 
   // The iframe document is written incrementally (document.write) instead of
   // being re-created through srcDoc on every streamed chunk — a fresh srcDoc
@@ -136,6 +144,55 @@ export function DesignFrame({
       /* iframe torn down mid-write */
     }
   }, [html, isPartial, id]);
+
+  // Measure the real page height and grow the frame to fit it.
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    let raf = 0;
+    let last = 0;
+
+    const measure = () => {
+      const doc = iframe.contentDocument;
+      const body = doc?.body;
+      if (!doc || !body) return;
+      const measured = Math.max(
+        body.scrollHeight,
+        doc.documentElement?.scrollHeight ?? 0,
+        body.getBoundingClientRect().height,
+      );
+      const next = Math.min(24000, Math.max(INNER_H, Math.round(measured)));
+      if (Math.abs(next - last) < 4) return;
+      last = next;
+      setInnerH(next);
+      onContentHeight?.(id, next);
+    };
+
+    measure();
+
+    let observer: ResizeObserver | null = null;
+    const win = iframe.contentWindow as (Window & typeof globalThis) | null;
+    if (win && "ResizeObserver" in win && iframe.contentDocument?.body) {
+      observer = new win.ResizeObserver(() => {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(measure);
+      });
+      observer.observe(iframe.contentDocument.body);
+    }
+
+    // While streaming, the document keeps growing between writes.
+    const poll = isPartial ? window.setInterval(measure, 400) : 0;
+    const settle = window.setTimeout(measure, 600);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      observer?.disconnect();
+      if (poll) window.clearInterval(poll);
+      window.clearTimeout(settle);
+    };
+  }, [html, isPartial, docReady, id, onContentHeight]);
+
+
 
 
   // Click-to-toggle-select overlay while select-mode is on.
@@ -407,7 +464,7 @@ export function DesignFrame({
       <div
         style={{
           width: INNER_W,
-          height: INNER_H,
+          height: innerH,
           transform: `scale(${scale})`,
           transformOrigin: "top left",
         }}
@@ -421,7 +478,7 @@ export function DesignFrame({
         sandbox="allow-scripts allow-same-origin"
         style={{
           width: INNER_W,
-          height: INNER_H,
+          height: innerH,
           transform: `scale(${scale})`,
           transformOrigin: "top left",
           opacity: isPartial && safeHtml.length < 2500 ? 0 : 1,
