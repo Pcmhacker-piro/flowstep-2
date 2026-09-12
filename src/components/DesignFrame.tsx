@@ -23,6 +23,9 @@ type Props = {
   focusRequest?: { editId: string; nonce: number } | null;
   onPickPart?: (sel: PartSelection) => void;
   onUnpickPart?: (designId: string, editId: string) => void;
+  /** Reports the full document height (in 1440px-wide design units) so the
+   *  canvas card can grow and show the whole page instead of the top fold. */
+  onContentHeight?: (designId: string, innerHeight: number) => void;
 };
 
 const INNER_W = 1440;
